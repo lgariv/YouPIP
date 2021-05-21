@@ -6,8 +6,7 @@ INSTALL_TARGET_PROCESSES = YouTube
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = YouPip
-YouPip_FILES = Tweak.xm Compat.xm
-YouPip_CFLAGS = -fobjc-arc
+YouPip_FILES = Tweak.xm
 YouPip_FRAMEWORKS = AVKit
 YouPip_PRIVATE_FRAMEWORKS = MediaRemote
 
