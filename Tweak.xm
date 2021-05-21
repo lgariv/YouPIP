@@ -119,6 +119,22 @@ YTHotConfig *(*InjectYTHotConfig)();
 
 %end
 
+#import <MediaRemote/MediaRemote.h>
+
+#pragma mark - This method is the method called to stop the playback after dismissing
+#pragma mark - the PIP view. We need to implement a new way to pause playback from here;
+#pragma mark - MRMediaRemoteCommandStop doesn't actually do anything, and
+#pragma mark - MRMediaRemoteCommandPause does pause, but breaks playback unless
+#pragma mark - delayed for a little bit after PIP dismiss animation is complete.
+%hook AVPictureInPictureController
+- (void)pictureInPicturePlatformAdapterPrepareToStopForDismissal:(id)arg1 {
+    NSLog(@"[YOUPIP] (pictureInPicturePlatformAdapterPrepareToStopForDismissal) %@", [arg1 class]);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.75 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        MRMediaRemoteSendCommand(MRMediaRemoteCommandPause, 0);
+    });
+}
+%end
+
 %hook MLHAMQueuePlayer
 
 - (id)initWithStickySettings:(id)stickySettings playerViewProvider:(id)playerViewProvider playerConfiguration:(id)playerConfiguration {
