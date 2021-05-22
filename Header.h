@@ -109,6 +109,7 @@
 - (void)addPIPControllerObserver:(id)observer;
 - (void)activatePiPController;
 - (void)deactivatePiPController;
+- (void)pause;
 @end
 
 @interface MLRemoteStream : NSObject
@@ -179,6 +180,7 @@
 - (YTSingleVideo *)videoData;
 - (YTLocalPlaybackController *)delegate;
 - (NSArray <MLFormat *> *)selectableVideoFormats;
+- (void)setMuted:(BOOL)arg1;
 @end
 
 @interface YTPlaybackControllerUIWrapper : NSObject
@@ -219,7 +221,13 @@
 @interface YTLocalPlaybackController : NSObject {
     YTPlayerPIPController *_playerPIPController;
 }
+@property (nonatomic, strong) YTSingleVideoController *activeVideoController;
 - (GIMMe *)gimme;
+- (void)pause;
+- (void)play;
+- (BOOL)isPlayingAd;
+- (BOOL)isPlayingAdSurvey;
+- (BOOL)isPlayingAdIntro;
 @end
 
 @interface GIMBindingBuilder : NSObject
@@ -247,4 +255,10 @@
 @interface MLDefaultPlayerViewFactory : NSObject
 - (BOOL)canUsePlayerView:(UIView *)playerView forVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)config;
 - (MLAVPlayerLayerView *)AVPlayerViewForVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)config;
+@end
+
+@interface AVSampleBufferDisplayLayerPlayerController : UIResponder
+-(BOOL)isPaused;
+-(void)setPaused:(BOOL)arg1;
+-(void)seekByTimeInterval:(double)arg1 toleranceBefore:(double)arg2 toleranceAfter:(double)arg3 ;
 @end

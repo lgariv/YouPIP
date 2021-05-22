@@ -1,12 +1,16 @@
 #import "Header.h"
 #import <version.h>
 
+YTLocalPlaybackController *ytLocalCont = nil;
+
 static void forceEnablePictureInPictureInternal(YTHotConfig *hotConfig) {
     [hotConfig mediaHotConfig].enablePictureInPicture = YES;
     [[[hotConfig hotConfigGroup] mediaHotConfig] iosMediaHotConfig].enablePictureInPicture = YES;
 }
 
-static void activatePiP(YTPlayerPIPController *controller) {
+static void activatePiP(YTLocalPlaybackController *local) {
+    ytLocalCont = local;
+    YTPlayerPIPController *controller = [local valueForKey:@"_playerPIPController"];
     if ([controller respondsToSelector:@selector(maybeEnablePictureInPicture)])
         [controller maybeEnablePictureInPicture];
     else if ([controller respondsToSelector:@selector(maybeInvokePictureInPicture)])
@@ -18,6 +22,18 @@ static void activatePiP(YTPlayerPIPController *controller) {
     }
 }
 
+static void dismissPiP(YTLocalPlaybackController *local) {
+    YTPlayerPIPController *controller = [local valueForKey:@"_playerPIPController"];
+    MLPIPController *pip = [controller valueForKey:@"_pipController"];
+    AVPictureInPictureController *avPip = [pip valueForKey:@"_pictureInPictureController"];
+    AVSampleBufferDisplayLayerPlayerController *buffer = [avPip valueForKey:@"_playerController"];
+    if (![local isPlayingAd] && ![local isPlayingAdSurvey] && ![local isPlayingAdIntro])
+        [buffer seekByTimeInterval:-0.75f toleranceBefore:0.75f toleranceAfter:0.75f];
+    [local play];
+    [pip pause];
+    [buffer setPaused:YES];
+}
+
 %hook YTPlayerViewController
 
 - (id)initWithParentResponder:(id)arg1 overlayFactory:(id)arg2 {
@@ -26,20 +42,23 @@ static void activatePiP(YTPlayerPIPController *controller) {
         YTHotConfig *hotConfig = [self valueForKey:@"_hotConfig"];
         forceEnablePictureInPictureInternal(hotConfig);
         YTLocalPlaybackController *local = [self valueForKey:@"_playbackController"];
-        YTPlayerPIPController *controller = [local valueForKey:@"_playerPIPController"];
-        NSLog(@"[YOUPIP] %@", [controller description] != nil ? [controller description] : @"controller == nil");
-        activatePiP(controller);
+        activatePiP(local);
     });
     return self;
 }
 
-%new
-- (void)appWillResignActive:(id)arg1 {
+- (void)applicationWillSuspend {
+    %orig;
     YTHotConfig *hotConfig = [self valueForKey:@"_hotConfig"];
     forceEnablePictureInPictureInternal(hotConfig);
     YTLocalPlaybackController *local = [self valueForKey:@"_playbackController"];
-    YTPlayerPIPController *controller = [local valueForKey:@"_playerPIPController"];
-    activatePiP(controller);
+    activatePiP(local);
+}
+
+- (void)applicationWantsViewsToDisappear {
+    NSLog(@"[YOUPIP] BEFORE applicationWantsViewsToDisappear");
+    %orig;
+    NSLog(@"[YOUPIP] AFTER applicationWantsViewsToDisappear");
 }
 
 %end
@@ -107,9 +126,11 @@ YTHotConfig *(*InjectYTHotConfig)();
 %hook AVPictureInPictureController
 
 - (void)pictureInPicturePlatformAdapterPrepareToStopForDismissal:(id)arg1 {
-    NSLog(@"[YOUPIP] (pictureInPicturePlatformAdapterPrepareToStopForDismissal) %@", [arg1 class]);
+    if (ytLocalCont != nil) dismissPiP(ytLocalCont);
+    [ytLocalCont.activeVideoController setMuted:YES];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.75 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         MRMediaRemoteSendCommand(MRMediaRemoteCommandPause, 0);
+        [ytLocalCont.activeVideoController setMuted:NO];
     });
 }
 
